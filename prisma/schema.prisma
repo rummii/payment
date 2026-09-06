@@ -1,0 +1,194 @@
+// Prisma schema — Multi-Product Payment Portal (GCash QR + PayPal)
+// SQLite connector: enums/Json are not supported, so enumerated values are
+// stored as String columns constrained by src/lib/constants.ts unions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String?
+  pinHash      String?
+  isAdmin      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions  ClientSubscription[]
+  payments       Payment[]
+  magicTokens    MagicLinkToken[]
+  reminderLogs   ReminderLog[]
+  outboxMessages OutboxMessage[]
+}
+
+model Plan {
+  id                 String   @id @default(cuid())
+  slug               String   @unique
+  name               String
+  description        String?
+  tier               String   @default("STARTER") // FREE | STARTER | PRO | ENTERPRISE
+  defaultAmountCents Int
+  currency           String   @default("PHP")
+  billingCycle       String   @default("MONTHLY") // MONTHLY | ANNUAL
+  trialDays          Int      @default(0)
+  isFree             Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  subscriptions ClientSubscription[]
+}
+
+model ClientSubscription {
+  id              String    @id @default(cuid())
+  clientId        String
+  planId          String
+  amountCents     Int
+  currency        String    @default("PHP")
+  status          String    @default("ACTIVE") // ACTIVE | TRIAL | PAID | DUE | OVERDUE | CANCELLED (persisted cache, recomputed on read)
+  billingCycle    String    @default("MONTHLY") // MONTHLY | ANNUAL
+  cycleStart      DateTime
+  billingCycleEnd DateTime
+  trialEndsAt     DateTime?
+  autoRenew       Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  plan     Plan     @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([billingCycleEnd])
+}
+
+model Payment {
+  id             String    @id @default(cuid())
+  clientId       String
+  subscriptionId String
+  amountCents    Int
+  currency       String    @default("PHP")
+  method         String // GCASH_QR | PAYPAL
+  provider       String // STATIC_QR | XENDIT | PAYMONGO | PAYPAL
+  transactionRef String    @unique
+  externalId     String?
+  status         String    @default("PENDING") // PENDING | PENDING_VERIFICATION | PAID | FAILED | REFUNDED
+  paymentDate    DateTime?
+  meta           String? // JSON string
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  client       Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  subscription ClientSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([externalId])
+}
+
+model ReminderLog {
+  id             String   @id @default(cuid())
+  clientId       String
+  subscriptionId String?
+  ruleKey        String
+  periodKey      String // e.g. "2026-09"
+  channel        String   @default("EMAIL")
+  sentAt         DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([ruleKey, periodKey, clientId, subscriptionId])
+  @@index([clientId])
+}
+
+// DB-driven payment channel catalog. Secrets (API keys) stay in the
+// environment — this table governs WHICH channels exist, their order,
+// and non-secret behaviour (e.g. static QR pay-to details).
+model PaymentChannel {
+  id          String   @id @default(cuid())
+  slug        String   @unique // "gcash-qr", "maya", "grabpay", "paypal"
+  label       String // display name in the payment modal tab
+  method      String // GCASH_QR | MAYA | GRABPAY | SHOPEEPAY | QR_PH | PAYPAL
+  provider    String // STATIC_QR | XENDIT | PAYMONGO | PAYPAL
+  channelType String   @default("") // provider-specific param (e.g. paymongo source type)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  config      String? // JSON, non-secret (e.g. {"number":"0917…","name":"Rummii"})
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model OutboxMessage {
+  id        String    @id @default(cuid())
+  clientId  String?
+  channel   String // EMAIL | SMS
+  recipient String
+  subject   String?
+  body      String
+  provider  String    @default("log")
+  status    String    @default("QUEUED") // QUEUED | SENT | FAILED
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  client Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  clientId  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+}
+
+model ProvisioningKey {
+  id         String    @id @default(cuid())
+  name       String
+  keyHash    String    @unique
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  url       String
+  secret    String
+  events    String   @default("*") // comma-separated event names or "*"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id          String    @id @default(cuid())
+  endpointId  String
+  event       String
+  payload     String
+  attempts    Int       @default(0)
+  status      String    @default("PENDING") // PENDING | DELIVERED | FAILED
+  lastError   String?
+  nextRetryAt DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+}
