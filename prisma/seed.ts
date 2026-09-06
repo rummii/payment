@@ -209,9 +209,26 @@ async function main() {
       sortOrder: 4,
       isActive: false,
     },
+  {
+      slug: "maribank",
+      label: "Maribank",
+      method: "MARIBANK",
+      provider: "STATIC_QR",
+      channelType: "",
+      sortOrder: 5,
+      isActive: false,
+      config: JSON.stringify({
+        name: "Maribank Business",
+        number: "0917-123-4567",
+      }),
+    },
   ];
   for (const ch of channels) {
-    await db.paymentChannel.upsert({ where: { slug: ch.slug }, update: {}, create: ch });
+    await db.paymentChannel.upsert({
+      where: { slug: ch.slug },
+      update: { config: ch.config ?? null },
+      create: { ...ch, config: ch.config ?? null },
+    });
   }
 
   console.log("✅ Seed complete.");

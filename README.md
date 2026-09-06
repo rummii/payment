@@ -47,7 +47,7 @@ Every admin route/page is guarded by the session `isAdmin` flag.
 | **Subscriptions** | Search, edit amount / cycle-end, credit comp cycles, resume/cancel |
 | **Payments** | Full ledger with PDF receipts |
 | **Clients** | Create (one-time PIN shown once), reset PIN, promote/revoke admin |
-| **Payment channels** | **Manage channels** — enable/disable, reorder (tab order), edit static-QR pay-to config |
+| **Payment channels** | **Manage channels** — add/enable/disable, delete custom channels, reorder (tab order), edit static-QR pay-to config. Seeded defaults (GCash QR, PayPal, Maya, GrabPay) are protected from deletion |
 | **Webhooks** | Add/test platform endpoints, view signed deliveries, retry failed |
 | **Outbox** | Full email/SMS spool (audit trail for both log and live providers) |
 
@@ -63,6 +63,7 @@ never accidentally expose a keyless channel):
 | GCash QR | `STATIC_QR` / `XENDIT` | dynamic QR + manual reference | ships enabled |
 | Maya | `PAYMONGO` (type `paymaya`) | GCash-family ewallet | inactive until enabled + keyed |
 | GrabPay | `PAYMONGO` (type `grabpay`) | ewallet | inactive until enabled + keyed |
+| Maribank | `STATIC_QR` | bank transfer QR + reference | seeded (inactive) — flip to enable |
 | PayPal | `PAYPAL` | Orders v2 | ships enabled |
 
 Manage them live under **Admin → Payment channels** (enable/disable, reorder,
@@ -152,10 +153,10 @@ pre-authenticated.
 
 `POST /api/auth/login | logout` · `GET /api/auth/session` ·
 `GET /api/me` · `GET /api/subscriptions` · `GET /api/payments` ·
-`POST /api/payments/intent { subscriptionId, method: GCASH_QR|PAYPAL }` ·
+`POST /api/payments/intent { subscriptionId, channelSlug: "gcash-qr"|"paypal"|"maribank"|... }` ·
 `POST /api/payments/:ref/confirm { reference }` (GCash) ·
 `POST /api/payments/paypal/capture { ref }` ·
-`GET /api/payments/:ref` (poll) · `GET /api/payments/:ref/receipt` (PDF).
+`GET /api/channels` (public channel catalog) · `GET /api/payments/:ref` (poll) · `GET /api/payments/:ref/receipt` (PDF).
 
 ## Project layout
 
@@ -170,7 +171,19 @@ src/notifications/ dispatch · email · sms · templates · receipts
 src/lib/           auth · db · env · dates (PH calendar) · status · paymentsService
                    receipt (pdf-lib) · provisioning · cronScheduler
 src/scripts/       reminder-cron.ts (one-shot) · cron-runner.ts (daemon)
-tests/             dates · status · lifecycle (Vitest)
+tests/             dates · status · lifecycle · channels (Vitest)
+```
+
+## Admin API
+
+```
+GET    /api/admin/overview      — MRR-ish stats
+GET    /api/admin/channels      — channel list (+ credentialReady flag)
+POST   /api/admin/channels      — create custom channel
+PATCH  /api/admin/channels/:id  — toggle / reorder / relabel / edit config
+DELETE /api/admin/channels/:id  — delete custom channel (defaults protected in UI)
+GET    /api/channels            — public, secret-free channel catalog (for SPA)
+```
 ```
 
 ## Production notes

@@ -17,6 +17,7 @@ export const PayMethod = {
   GRABPAY: "GRABPAY",
   SHOPEEPAY: "SHOPEEPAY",
   QR_PH: "QR_PH",
+  MARIBANK: "MARIBANK",
   PAYPAL: "PAYPAL",
 } as const;
 export type PayMethodValue = (typeof PayMethod)[keyof typeof PayMethod];
@@ -28,6 +29,7 @@ export const METHOD_LABELS: Record<string, string> = {
   GRABPAY: "GrabPay",
   SHOPEEPAY: "ShopeePay",
   QR_PH: "QR Ph",
+  MARIBANK: "Maribank",
   PAYPAL: "PayPal",
 };
 

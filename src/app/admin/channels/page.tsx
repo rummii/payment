@@ -16,6 +16,12 @@ interface Channel {
   credentialReady: boolean;
 }
 
+/** Seeded channels cannot be deleted (only disabled) to avoid breaking defaults. */
+const DEFAULT_CHANNEL_SLUGS = new Set(["gcash-qr", "paypal", "maya", "grabpay"]);
+function isDefaultChannel(slug: string): boolean {
+  return DEFAULT_CHANNEL_SLUGS.has(slug);
+}
+
 export default function ChannelsPage() {
   const { data, error, loading, reload } = useApi<{ channels: Channel[] }>(
     "/api/admin/channels"
@@ -51,6 +57,15 @@ export default function ChannelsPage() {
     if (!Number.isNaN(parsed)) {
       patch(c, { sortOrder: parsed }, "Display order saved.");
     }
+  }
+
+  async function remove(c: Channel) {
+    if (!window.confirm(`Delete the "${c.label}" channel? This cannot be undone.`)) return;
+    setBusyId(c.id);
+    const res = await adminSend(`/api/admin/channels/${c.id}`, "DELETE");
+    setBusyId(null);
+    setNotice(res.ok ? `Channel "${c.label}" deleted.` : String(res.data.error));
+    reload();
   }
 
   function addChannel() {
@@ -116,6 +131,16 @@ export default function ChannelsPage() {
               <button className="btn small" onClick={() => reorder(c)}>Order</button>{" "}
               {c.provider === "STATIC_QR" && (
                 <button className="btn small" onClick={() => editConfig(c)}>Config</button>
+              )}{" "}
+              {!isDefaultChannel(c.slug) && (
+                <button
+                  className="btn small"
+                  disabled={busyId === c.id}
+                  onClick={() => remove(c)}
+                  style={{ color: "#f87171", borderColor: "rgba(248,113,113,0.5)" }}
+                >
+                  Delete
+                </button>
               )}
             </td>
           </tr>
