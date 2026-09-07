@@ -12,7 +12,9 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production
+# --ignore-scripts skips the postinstall (prisma generate) — that runs in the
+# builder stage where the Prisma schema is available.
+RUN npm ci --only=production --ignore-scripts
 
 # ─── Builder stage ───────────────────────────────────────────────────────────
 FROM base AS builder
