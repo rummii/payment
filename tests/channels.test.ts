@@ -31,7 +31,7 @@ describe("channelCredentialReady", () => {
 describe("staticPayToFromConfig", () => {
   it("prefers channel config over env fallback", () => {
     const payTo = staticPayToFromConfig(
-      { number: "09181112222", name: "Custom Name" },
+      { payTo: { number: "09181112222", name: "Custom Name" } },
       "09170000000",
       "Env Default"
     );
@@ -43,8 +43,24 @@ describe("staticPayToFromConfig", () => {
       number: "09170000000",
       name: "Env Default",
     });
-    expect(staticPayToFromConfig({ number: "", name: null }, "09170000000", "Env Default")).toEqual({
+    expect(
+      staticPayToFromConfig(
+        { payTo: { number: "", name: null } },
+        "09170000000",
+        "Env Default"
+      )
+    ).toEqual({
       number: "09170000000",
+      name: "Env Default",
+    });
+    expect(
+      staticPayToFromConfig(
+        { payTo: { number: "09181112222" } },
+        "09170000000",
+        "Env Default"
+      )
+    ).toEqual({
+      number: "09181112222",
       name: "Env Default",
     });
   });

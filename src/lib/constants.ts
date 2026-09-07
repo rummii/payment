@@ -104,3 +104,53 @@ export const ReminderRules = {
 } as const;
 export type ReminderRuleValue =
   (typeof ReminderRules)[keyof typeof ReminderRules];
+
+// ─── Per-provider channel configuration schemas ─────────────────────────────
+
+/** STATIC_QR: custom dynamic QR displayed for the exact bill amount. */
+export interface StaticQrConfig {
+  payTo?: { number?: string; name?: string };
+  autoConfirm?: boolean;
+  instructions?: string[];
+}
+
+/** PAYPAL: Orders v2 experience + display settings. */
+export interface PayPalConfig {
+  experienceContext?: {
+    brandName?: string;
+    landingPage?: "LOGIN" | "BILLING" | "NO_PREFERENCE";
+    shippingPreference?: "GET_FROM_FILE" | "NO_SHIPPING" | "SET_PROVIDED_ADDRESS";
+    userAction?: "CONTINUE" | "PAY_NOW";
+    paymentMethodPayerSelected?: string;
+    paymentMethodPreference?: "IMMEDIATE_PAYMENT_REQUIRED" | "UNRESTRICTED";
+  };
+  currency?: string;
+}
+
+/** XENDIT: QR code API settings. */
+export interface XenditConfig {
+  apiBase?: string;
+  expiresIn?: number; // seconds until QR expires
+  qrType?: "DYNAMIC" | "STATIC";
+}
+
+/** PAYMONGO: e-wallet source settings. */
+export interface PaymongoConfig {
+  sourceType?: "gcash" | "grabpay" | "paymaya";
+  statementDescriptor?: string;
+}
+
+export type ChannelConfig =
+  | StaticQrConfig
+  | PayPalConfig
+  | XenditConfig
+  | PaymongoConfig
+  | Record<string, unknown>;
+
+/** Map a provider to its config interface name (for admin UI labels). */
+export const PROVIDER_LABELS: Record<string, string> = {
+  STATIC_QR: "Static QR",
+  PAYPAL: "PayPal",
+  XENDIT: "Xendit",
+  PAYMONGO: "PayMongo",
+};

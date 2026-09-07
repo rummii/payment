@@ -37,6 +37,7 @@ export interface GcashIntentResult {
 export interface GcashVerifyInput {
   externalId: string | null;
   transactionRef: string;
+  channelConfig?: Record<string, unknown>;
 }
 
 export interface GcashVerifyResult {

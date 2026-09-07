@@ -5,6 +5,7 @@
 import QRCode from "qrcode";
 import { env } from "../lib/env";
 import { formatPeso } from "../lib/currency";
+import { paymongoSourceType } from "./channelLogic";
 import type {
   GcashGateway,
   GcashIntentInput,
@@ -29,6 +30,7 @@ export const paymongoGateway: GcashGateway = {
   name: "PAYMONGO",
 
   async createIntent(input): Promise<GcashIntentResult> {
+    const sourceType = paymongoSourceType(input.channel?.config ?? null, "gcash");
     const res = await fetch(`${API}/sources`, {
       method: "POST",
       headers: {
@@ -41,7 +43,7 @@ export const paymongoGateway: GcashGateway = {
             amount: input.amountCents,
             currency: "PHP",
             // DB-driven channel type: "gcash" | "grabpay" | "paymaya" | …
-            type: input.channel?.channelType || "gcash",
+            type: sourceType,
             redirect: {
               success: `${env.appUrl}/?payment=success&ref=${input.ref}`,
               failed: `${env.appUrl}/?payment=failed&ref=${input.ref}`,

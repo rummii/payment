@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
         amountCents: sub.amountCents,
         ref,
         description,
+        channelConfig: channel.config,
       });
       await db.payment.create({
         data: {

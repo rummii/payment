@@ -9,9 +9,16 @@ export function startInServerCron(): void {
   if (started.value || !env.inServerCron) return;
   started.value = true;
 
-  void (async () => {
-    const cron = (await import("node-cron")).default;
-    const { runDailyJob } = await import("@/engine/dailyJob");
+      void (async () => {
+    // Use a dynamic module name (eval('import')) so that webpack/Next.js doesn't
+    // try to bundle these modules at compile time. They depend on Node built-ins
+    // (path, child_process, node:crypto) that are unavailable in the browser
+    // bundling context. These are only ever needed at runtime when
+    // ENABLE_IN_SERVER_CRON=true.
+    const dyn = eval('import') as (s: string) => Promise<any>;
+    const cronMod = await dyn("node-cron");
+    const cron = cronMod.default;
+    const { runDailyJob } = await dyn("@/engine/dailyJob");
 
     // Spec: daily 09:00 AM (PHT) reminder sweep.
     cron.schedule(
@@ -19,8 +26,8 @@ export function startInServerCron(): void {
       () => {
         console.log("[cron] 09:00 PHT daily job starting");
         runDailyJob()
-          .then((s) => console.log("[cron] daily job summary:", JSON.stringify(s)))
-          .catch((e) => console.error("[cron] daily job failed:", e));
+          .then((s: any) => console.log("[cron] daily job summary:", JSON.stringify(s)))
+          .catch((e: any) => console.error("[cron] daily job failed:", e));
       },
       { timezone: "Asia/Manila" }
     );
@@ -30,10 +37,10 @@ export function startInServerCron(): void {
       "*/10 * * * *",
       () => {
         void (async () => {
-          const { retryDueDeliveries } = await import("@/engine/webhooks");
+          const { retryDueDeliveries } = await dyn("@/engine/webhooks");
           const n = await retryDueDeliveries();
           if (n > 0) console.log(`[cron] retried ${n} webhook deliveries`);
-        })().catch((e) => console.error("[cron] webhook retry failed:", e));
+        })().catch((e: any) => console.error("[cron] webhook retry failed:", e));
       },
       { timezone: "Asia/Manila" }
     );

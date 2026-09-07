@@ -7,7 +7,10 @@ import QRCode from "qrcode";
 import { env } from "../lib/env";
 import { METHOD_LABELS } from "../lib/constants";
 import { centsToDecimalString } from "../lib/currency";
-import { staticPayToFromConfig } from "./channelLogic";
+import {
+  staticAutoConfirm,
+  staticPayToFromConfig,
+} from "./channelLogic";
 import type {
   GcashGateway,
   GcashIntentInput,
@@ -43,17 +46,28 @@ export const staticGcashGateway: GcashGateway = {
       margin: 2,
       errorCorrectionLevel: "M",
     });
+    const autoConfirm = staticAutoConfirm(
+      input.channel?.config ?? null,
+      env.gcash.autoConfirmStaticQr
+    );
+    // Allow per-channel custom instructions, else generate defaults.
+    const cfg = (input.channel?.config ?? {}) as {
+      instructions?: string[];
+    };
+    const instructions = cfg.instructions?.length
+      ? cfg.instructions
+      : [
+          `Open your ${methodLabel} app and tap Scan QR Code.`,
+          `Scan the QR above — or manually send to ${payTo.number} (${payTo.name}).`,
+          `Pay the exact amount of PHP ${centsToDecimalString(input.amountCents)} for reference ${input.ref}.`,
+          "Enter the reference number from your receipt below, then submit.",
+        ];
     return {
       provider: "STATIC_QR",
       qrDataUrl,
       qrString: payload,
-      autoConfirm: env.gcash.autoConfirmStaticQr,
-      instructions: [
-        `Open your ${methodLabel} app and tap Scan QR Code.`,
-        `Scan the QR above — or manually send to ${payTo.number} (${payTo.name}).`,
-        `Pay the exact amount of PHP ${centsToDecimalString(input.amountCents)} for reference ${input.ref}.`,
-        "Enter the reference number from your receipt below, then submit.",
-      ],
+      autoConfirm,
+      instructions,
     };
   },
 };

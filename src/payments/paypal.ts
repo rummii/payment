@@ -2,8 +2,13 @@
 // webhook signature verification. Uses fetch directly against api-m.* so we
 // track the current Orders v2 API without the deprecated legacy SDK.
 
+import { randomUUID } from "node:crypto";
 import { env, paypalConfigured } from "../lib/env";
 import { centsToDecimalString } from "../lib/currency";
+import {
+  buildPayPalExperienceContext,
+  paypalCurrency,
+} from "./channelLogic";
 
 const base = () =>
   env.paypal.mode === "live"
@@ -46,12 +51,41 @@ export interface CreatePayPalOrderArgs {
   amountCents: number;
   ref: string;
   description: string;
+  channelConfig?: Record<string, unknown>;
+}
+
+/** Human-readable labels for PayPal error issues. */
+const PAYPAL_ERROR_MESSAGES: Record<string, string> = {
+  INSTRUMENT_DECLINED:
+    "Your payment method was declined. Please try another card or payment method.",
+  PAYER_CANNOT_PAY:
+    "PayPal was unable to process your payment. Please try again or use a different method.",
+  PAYER_ACCOUNT_RESTRICTED:
+    "Your PayPal account has restrictions. Please contact PayPal or use another method.",
+  ORDER_NOT_APPROVED: "Payment was not approved. Please try again.",
+  ORDER_ALREADY_CAPTURED: "This payment has already been captured.",
+  TRANSACTION_REFUSED: "The transaction was refused by the issuer.",
+};
+
+export function paypalErrorMessage(body: Record<string, unknown> | null): string {
+  const details = (body as { details?: Array<{ issue?: string }> } | null)?.details;
+  if (details?.length) {
+    const issue = details[0].issue ?? "";
+    if (PAYPAL_ERROR_MESSAGES[issue]) return PAYPAL_ERROR_MESSAGES[issue];
+    return `${issue.replace(/_/g, " ")}. Please try again.`;
+  }
+  return "PayPal payment failed. Please try again.";
 }
 
 export async function createPayPalOrder(
   args: CreatePayPalOrderArgs
 ): Promise<{ orderId: string; approveUrl?: string }> {
   const token = await getAccessToken();
+  const currency = paypalCurrency(args.channelConfig ?? null, env.paypal.currency);
+  const experienceContext = buildPayPalExperienceContext(
+    args.channelConfig ?? null,
+    "Rummii"
+  );
   const res = await fetch(`${base()}/v2/checkout/orders`, {
     method: "POST",
     headers: {
@@ -66,15 +100,23 @@ export async function createPayPalOrder(
           custom_id: args.ref,
           description: args.description.slice(0, 127),
           amount: {
-            currency_code: env.paypal.currency,
+            currency_code: currency,
             value: centsToDecimalString(args.amountCents),
           },
         },
       ],
+      payment_source: {
+        paypal: {
+          experience_context: experienceContext,
+        },
+      },
     }),
   });
   if (!res.ok) {
-    throw new Error(`PayPal order create failed: ${res.status} ${await res.text()}`);
+    const errBody = await res.json().catch(() => null);
+    throw new Error(
+      `PayPal order create failed: ${paypalErrorMessage(errBody)} (HTTP ${res.status})`
+    );
   }
   const order = (await res.json()) as {
     id: string;
@@ -96,19 +138,20 @@ export async function capturePayPalOrder(
   orderId: string
 ): Promise<PayPalCaptureResult> {
   const token = await getAccessToken();
+  const requestId = randomUUID();
   const res = await fetch(`${base()}/v2/checkout/orders/${orderId}/capture`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      "PayPal-Request-Id": requestId,
     },
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
-    const detail =
-      (body as { details?: Array<{ issue?: string }> } | null)?.details?.[0]
-        ?.issue ?? res.status;
-    throw new Error(`PayPal capture failed: ${detail}`);
+    throw new Error(
+      `PayPal capture failed: ${paypalErrorMessage(body)} (HTTP ${res.status})`
+    );
   }
   const purchase = (
     body as {

@@ -5,15 +5,18 @@
 
 import QRCode from "qrcode";
 import { env } from "../lib/env";
+import {
+  xenditApiBase,
+  xenditExpiresIn,
+} from "./channelLogic";
 import type {
   GcashGateway,
   GcashIntentInput,
   GcashIntentResult,
 } from "./gateway";
 
-function authHeader(): string {
-  // Xendit uses HTTP Basic auth with the secret API key as the username.
-  return "Basic " + Buffer.from(`${env.xendit.apiKey}:`).toString("base64");
+function authHeader(apiKey: string): string {
+  return "Basic " + Buffer.from(`${apiKey}:`).toString("base64");
 }
 
 async function safeText(res: Response): Promise<string> {
@@ -33,10 +36,12 @@ export const xenditGateway: GcashGateway = {
         `XENDIT provider supports only the GCASH QR channel (got "${input.channel.channelType}")`
       );
     }
-    const res = await fetch(`${env.xendit.apiBase}/qr_codes`, {
+    const apiBase = xenditApiBase(input.channel?.config ?? null, env.xendit.apiBase);
+    const expiresIn = xenditExpiresIn(input.channel?.config ?? null, 24 * 3600);
+    const res = await fetch(`${apiBase}/qr_codes`, {
       method: "POST",
       headers: {
-        Authorization: authHeader(),
+        Authorization: authHeader(env.xendit.apiKey),
         "Content-Type": "application/json",
         "X-API-VERSION": "2023-11-29",
       },
@@ -45,7 +50,7 @@ export const xenditGateway: GcashGateway = {
         type: "DYNAMIC",
         currency: "PHP",
         amount: input.amountCents / 100,
-        expires_at: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+        expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
         metadata: { description: input.description },
       }),
     });
@@ -78,9 +83,10 @@ export const xenditGateway: GcashGateway = {
   /** Best-effort poll; the webhook remains authoritative. */
   async verify(payment) {
     if (!payment.externalId) return { paid: false };
+    const apiBase = xenditApiBase(payment.channelConfig ?? null, env.xendit.apiBase);
     const res = await fetch(
-      `${env.xendit.apiBase}/qr_codes/${payment.externalId}`,
-      { headers: { Authorization: authHeader(), "X-API-VERSION": "2023-11-29" } }
+      `${apiBase}/qr_codes/${payment.externalId}`,
+      { headers: { Authorization: authHeader(env.xendit.apiKey), "X-API-VERSION": "2023-11-29" } }
     );
     if (!res.ok) return { paid: false, meta: { pollStatus: res.status } };
     const data = (await res.json()) as { status?: string; amount_paid?: number };
