@@ -1,4 +1,4 @@
-# Rummii Payment Portal
+# OSIRIS CENTER Payment Portal
 
 Multi-product client billing portal — clients log in, see every active
 software subscription (web infrastructure, CRM, inventory portal, custom

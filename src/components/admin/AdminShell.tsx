@@ -36,7 +36,7 @@ export default function AdminShell({
       <div className="topbar">
         <div>
           <div className="brand">
-            Rummii <span>Admin</span>
+            OSIRIS CENTER <span>Admin</span>
           </div>
           <div className="userline">{name}</div>
         </div>

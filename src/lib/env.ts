@@ -17,7 +17,7 @@ export const env = {
   gcash: {
     provider: str("GCASH_PROVIDER", "static"), // static | xendit | paymongo
     staticNumber: str("GCASH_STATIC_NUMBER", "09171234567"),
-    staticName: str("GCASH_STATIC_NAME", "Rummii Digital Services"),
+    staticName: str("GCASH_STATIC_NAME", "OSIRIS CENTER Digital Services"),
     autoConfirmStaticQr: str("AUTO_CONFIRM_STATIC_QR", "false") === "true",
   },
 
@@ -50,7 +50,7 @@ export const env = {
   sms: {
     provider: str("SMS_PROVIDER", "log"), // log | semaphore
     semaphoreApiKey: str("SEMAPHORE_API_KEY"),
-    semaphoreSender: str("SEMAPHORE_SENDER_NAME", "RUMMII"),
+    semaphoreSender: str("SEMAPHORE_SENDER_NAME", "OSIRIS CENTER"),
   },
 
   devTools:

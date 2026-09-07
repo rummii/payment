@@ -78,7 +78,7 @@ export default function Dashboard() {
     <div className="shell">
       <div className="topbar">
         <div className="brand">
-          Rummii <span>Billing</span>
+          OSIRIS CENTER <span>Billing</span>
         </div>
         <div className="row">
           {client?.isAdmin && (

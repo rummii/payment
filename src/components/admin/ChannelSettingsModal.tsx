@@ -41,7 +41,7 @@ export default function ChannelSettingsModal({
   );
   const [brandName, setBrandName] = useState<string>(
     ((cfg.experienceContext as Record<string, unknown>)?.brandName as string) ??
-      "Rummii"
+      "OSIRIS CENTER"
   );
   const [currency, setCurrency] = useState<string>(
     (cfg.currency as string) ?? "PHP"
@@ -77,7 +77,7 @@ export default function ChannelSettingsModal({
       case "PAYPAL":
         config = {
           experienceContext: {
-            brandName: brandName.trim() || "Rummii",
+            brandName: brandName.trim() || "OSIRIS CENTER",
             shippingPreference: shippingPref,
             userAction,
           },

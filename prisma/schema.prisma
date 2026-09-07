@@ -1,13 +1,14 @@
 // Prisma schema — Multi-Product Payment Portal (GCash QR + PayPal)
-// SQLite connector: enums/Json are not supported, so enumerated values are
-// stored as String columns constrained by src/lib/constants.ts unions.
+// PostgreSQL via Neon (production). Enums/Json are not supported natively,
+// so enumerated values are stored as String columns constrained by
+// src/lib/constants.ts unions.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

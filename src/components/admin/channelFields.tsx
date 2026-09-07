@@ -62,7 +62,7 @@ export function StaticQrFields({
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Rummii Digital Services"
+            placeholder="OSIRIS CENTER Digital Services"
           />
         </Field>
       </div>

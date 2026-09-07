@@ -20,7 +20,7 @@ export function layout(title: string, bodyHtml: string): string {
   return `<!doctype html><html><body style="margin:0;background:#0b0f19;font-family:Segoe UI,Arial,sans-serif;color:#e5e9f0;padding:32px;">
   <div style="max-width:560px;margin:0 auto;background:#121829;border:1px solid #232c44;border-radius:12px;overflow:hidden">
     <div style="background:linear-gradient(90deg,#0ea5e9,#22c55e);padding:18px 24px;">
-      <span style="font-size:18px;font-weight:700;color:#04121f;">Rummii Billing</span>
+      <span style="font-size:18px;font-weight:700;color:#04121f;">OSIRIS CENTER Billing</span>
     </div>
     <div style="padding:28px 24px;">
       <h2 style="margin:0 0 16px;font-size:18px;color:#f1f5f9;">${title}</h2>

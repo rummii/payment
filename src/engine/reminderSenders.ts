@@ -52,7 +52,7 @@ export async function sendRuleNotification(
       await dispatchSms({
         clientId: client.id,
         to: client.phone,
-        message: `Rummii Billing: your ${sub.planName} trial ends in ${daysLeft} day(s). Pay at ${portalLink()}`,
+        message: `OSIRIS CENTER Billing: your ${sub.planName} trial ends in ${daysLeft} day(s). Pay at ${portalLink()}`,
       });
     }
     await publishEvent(Events.TRIAL_EXPIRING, {

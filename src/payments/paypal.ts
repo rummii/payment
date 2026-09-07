@@ -84,7 +84,7 @@ export async function createPayPalOrder(
   const currency = paypalCurrency(args.channelConfig ?? null, env.paypal.currency);
   const experienceContext = buildPayPalExperienceContext(
     args.channelConfig ?? null,
-    "Rummii"
+    "OSIRIS CENTER"
   );
   const res = await fetch(`${base()}/v2/checkout/orders`, {
     method: "POST",

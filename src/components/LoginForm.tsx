@@ -38,7 +38,7 @@ export default function LoginForm() {
     <div className="login-wrap">
       <div className="login-box card">
         <div className="brand">
-          Rummii <span>Billing</span>
+          OSIRIS CENTER <span>Billing</span>
         </div>
         <form onSubmit={submit}>
           <label className="field">

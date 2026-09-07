@@ -1,0 +1,56 @@
+# Cloud Build configuration for Google Cloud Run deployment
+# Run: gcloud builds submit --config cloudbuild.yaml
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/osiris-center:latest', '-t', 'gcr.io/$PROJECT_ID/osiris-center:$COMMIT_SHA', '.']
+
+  # Push to Artifact Registry / Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/osiris-center:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'osiris-center'
+      - '--image=gcr.io/$PROJECT_ID/osiris-center:latest'
+      - '--platform=managed'
+      - '--region=asia-southeast1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=DATABASE_URL=${_DATABASE_URL},NEXT_PUBLIC_APP_URL=${_NEXT_PUBLIC_APP_URL},NODE_ENV=production,GCASH_PROVIDER=${_GCASH_PROVIDER},GCASH_STATIC_NUMBER=${_GCASH_STATIC_NUMBER},GCASH_STATIC_NAME=${_GCASH_STATIC_NAME},PAYPAL_ENV=${_PAYPAL_ENV},PAYPAL_CURRENCY=${_PAYPAL_CURRENCY},EMAIL_PROVIDER=${_EMAIL_PROVIDER},EMAIL_FROM=${_EMAIL_FROM},SMS_PROVIDER=${_SMS_PROVIDER},SEMAPHORE_SENDER_NAME=${_SEMAPHORE_SENDER_NAME}'
+      - '--set-secrets=AUTH_SECRET=auth-secret:latest,CRON_SECRET=cron-secret:latest,PAYPAL_CLIENT_ID=paypal-client-id:latest,PAYPAL_CLIENT_SECRET=paypal-client-secret:latest,PAYPAL_WEBHOOK_ID=paypal-webhook-id:latest,NEXT_PUBLIC_PAYPAL_CLIENT_ID=paypal-public-client-id:latest,RESEND_API_KEY=resend-api-key:latest,SENDGRID_API_KEY=sendgrid-api-key:latest,SEMAPHORE_API_KEY=semaphore-api-key:latest,PROVISIONING_SEED_KEY=provisioning-seed-key:latest,XENDIT_API_KEY=xendit-api-key:latest,XENDIT_CALLBACK_TOKEN=xendit-callback-token:latest,PAYMONGO_SECRET_KEY=paymongo-secret-key:latest,PAYMONGO_WEBHOOK_SECRET=paymongo-webhook-secret:latest'
+      - '--max-instances=10'
+      - '--min-instances=0'
+      - '--cpu=1'
+      - '--memory=512Mi'
+      - '--timeout=300s'
+      - '--concurrency=80'
+
+# Store images in Artifact Registry
+images:
+  - 'gcr.io/$PROJECT_ID/osiris-center:latest'
+
+# Build timeout (default 10m)
+timeout: '1200s'
+
+# Substitutions (override at build time: gcloud builds submit --substitutions=_VAR=value)
+substitutions:
+  _DATABASE_URL: ''
+  _NEXT_PUBLIC_APP_URL: ''
+  _GCASH_PROVIDER: 'static'
+  _GCASH_STATIC_NUMBER: '09171234567'
+  _GCASH_STATIC_NAME: 'OSIRIS CENTER Digital Services'
+  _PAYPAL_ENV: 'sandbox'
+  _PAYPAL_CURRENCY: 'PHP'
+  _EMAIL_PROVIDER: 'log'
+  _EMAIL_FROM: 'Billing <billing@localhost>'
+  _SMS_PROVIDER: 'log'
+  _SEMAPHORE_SENDER_NAME: 'OSIRIS CENTER'
+
+# Build options
+options:
+  logging: CLOUD_LOGGING_ONLY

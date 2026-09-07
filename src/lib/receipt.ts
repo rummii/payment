@@ -27,7 +27,7 @@ export async function buildReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   const brand = rgb(0.13, 0.65, 0.35);
 
   page.drawRectangle({ x: 0, y: 762, width: 595, height: 80, color: brand });
-  page.drawText("Rummii Billing", {
+  page.drawText("OSIRIS CENTER Billing", {
     x: 48,
     y: 802,
     size: 20,
