@@ -23,10 +23,12 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+# --ignore-scripts skips the postinstall (prisma generate) — we run it
+# explicitly below after the schema is available.
+RUN npm ci --ignore-scripts
 
 COPY . .
-# Generate Prisma client
+# Generate Prisma client (now that prisma/schema.prisma is available)
 RUN npx prisma generate
 
 # Build Next.js with standalone output
