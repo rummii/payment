@@ -14,9 +14,6 @@ export const env = {
   ),
   cronSecret: str("CRON_SECRET", "dev-cron-secret"),
 
-  /** Auto-subscribe new self-signups to this free plan slug (empty = off). */
-  signupFreePlanSlug: str("SIGNUP_FREE_PLAN_SLUG", ""),
-
   gcash: {
     provider: str("GCASH_PROVIDER", "static"), // static | xendit | paymongo
     staticNumber: str("GCASH_STATIC_NUMBER", "09171234567"),

@@ -127,22 +127,3 @@ export function buildWelcomeEmail(args: {
   );
   return { subject, html, text: `Your ${args.planName} subscription is active. Portal: ${portalLink()}` };
 }
-
-export function buildSignupWelcomeEmail(args: {
-  clientName: string;
-  /** Omit when the account has no plan yet (no auto-free-tier). */
-  planName?: string;
-}): EmailContent {
-  const plan = args.planName
-    ? `<p>Your <strong>${args.planName}</strong> subscription is ready to go.</p>`
-    : "";
-  const subject = "Welcome to OSIRIS CENTER Billing";
-  const html = layout(
-    `Welcome aboard, ${args.clientName}!`,
-    `<p>Your billing account is ready. Review subscriptions, pay via GCash QR or PayPal, and download receipts anytime.</p>
-     ${plan}
-     ${button(portalLink("/login"), "Sign in to the billing portal")}`
-  );
-  const text = `Your OSIRIS CENTER billing account is ready. Sign in: ${portalLink("/login")}`;
-  return { subject, html, text };
-}

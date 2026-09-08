@@ -26,9 +26,6 @@ npm run build && npm start    # or: npm run dev
 
 Open http://localhost:3000 — **demo@client.ph / PIN 123456**
 (the demo client is an admin, so you'll see the **Admin console** link too).
-New clients can self-register via **Create account** on the login page — they're
-emailed a welcome note and auto-subscribed to the free-tier plan set by
-`SIGNUP_FREE_PLAN_SLUG` (empty string disables auto-subscribe).
 
 Tests / typecheck:
 
