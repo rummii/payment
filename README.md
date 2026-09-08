@@ -30,7 +30,7 @@ Open http://localhost:3000 — **demo@client.ph / PIN 123456**
 Tests / typecheck:
 
 ```bash
-npm test        # 42 unit tests (dates, status, lifecycle, channels)
+npm test        # 50 unit tests (dates, status, lifecycle, channels, paypal)
 npm run lint    # tsc --noEmit
 ```
 
@@ -84,7 +84,7 @@ PayPal activates when `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` (server) and
 `NEXT_PUBLIC_PAYPAL_CLIENT_ID` (browser SDK) are set — otherwise the PayPal tab
 explains the missing configuration. Settlement = server-side capture
 (`/api/payments/paypal/capture`) plus a `PAYMENT.CAPTURE.COMPLETED` webhook
-fallback (verified against `PAYPAL_WEBHOOK_ID` when configured).
+fallback (verified against `PAYPAL_WEBHOOK_ID` when configured). Poll a payment's live PayPal status with `GET /api/payments/:ref?refresh=true` (Orders v2 `GET /v2/checkout/orders/{id}`); falls back to the cached status when PayPal is unconfigured or unreachable.
 
 ## Subscription lifecycle
 
@@ -156,7 +156,7 @@ pre-authenticated.
 `POST /api/payments/intent { subscriptionId, channelSlug: "gcash-qr"|"paypal"|"maribank"|... }` ·
 `POST /api/payments/:ref/confirm { reference }` (GCash) ·
 `POST /api/payments/paypal/capture { ref }` ·
-`GET /api/channels` (public channel catalog) · `GET /api/payments/:ref` (poll) · `GET /api/payments/:ref/receipt` (PDF).
+`GET /api/channels` (public channel catalog) · `GET /api/payments/:ref` (poll; `?refresh=true` reconciles PayPal status via Orders v2) · `GET /api/payments/:ref/receipt` (PDF).
 
 ## Project layout
 
@@ -171,7 +171,7 @@ src/notifications/ dispatch · email · sms · templates · receipts
 src/lib/           auth · db · env · dates (PH calendar) · status · paymentsService
                    receipt (pdf-lib) · provisioning · cronScheduler
 src/scripts/       reminder-cron.ts (one-shot) · cron-runner.ts (daemon)
-tests/             dates · status · lifecycle · channels (Vitest)
+tests/             dates · status · lifecycle · channels · paypal (Vitest)
 ```
 
 ## Admin API

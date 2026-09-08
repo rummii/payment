@@ -10,10 +10,12 @@ import {
   PayMethod,
   PayProvider,
   PayStatus,
+  PayStatusValue,
   SubStatus,
 } from "./constants";
 import { randomToken } from "./hash";
 import { publishEvent } from "../engine/webhooks";
+import { getPayPalOrderStatus } from "../payments/paypal";
 import { sendPaymentReceiptEmail } from "../notifications/templates";
 
 export function newTransactionRef(prefix: "GC" | "PAY"): string {
@@ -194,4 +196,62 @@ export async function syncPersistedStatus(
 
 export function describeAmount(cents: number): string {
   return formatPeso(cents);
+}
+
+/**
+ * Reconcile a PayPal payment's persisted status against PayPal's Orders v2
+ * `GET /v2/checkout/orders/{id}` API. Safe to call repeatedly (idempotent):
+ *
+ *  - If PayPal reports COMPLETED and the local row is not yet PAID, the
+ *    canonical `markPaymentPaid` path runs so the subscription cycle,
+ *    webhooks and receipt all fire consistently.
+ *  - Non-PAID transitions (FAILED / REFUNDED / PENDING_*) are written to the
+ *    status column directly.
+ *  - An already-matching status is a no-op.
+ *
+ * Throws when PayPal is unreachable or unconfigured -- callers should treat
+ * that as "fall back to the persisted status."
+ */
+export async function refreshPayPalPaymentStatus(
+  paymentId: string
+): Promise<{ ref: string; status: string; changed: boolean }> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) throw new Error(`Payment ${paymentId} not found`);
+  if (payment.provider !== PayProvider.PAYPAL || !payment.externalId) {
+    throw new Error(`Payment ${payment.transactionRef} is not a PayPal payment`);
+  }
+
+  const info = await getPayPalOrderStatus(payment.externalId);
+  const prev = payment.status as string;
+
+  // Already in sync -- nothing to write.
+  if (info.payStatus === prev) {
+    return { ref: payment.transactionRef, status: prev, changed: false };
+  }
+
+  // Promotion to PAID flows through the canonical settle path.
+  if (info.payStatus === PayStatus.PAID) {
+    const { alreadyPaid } = await markPaymentPaid(payment.id, {
+      captureId: info.captureId,
+      verifiedBy: "paypal-poll",
+      paypalOrderStatus: info.orderStatus,
+      paypalCaptureStatus: info.captureStatus,
+    });
+    return {
+      ref: payment.transactionRef,
+      status: PayStatus.PAID,
+      changed: !alreadyPaid,
+    };
+  }
+
+  // Non-PAID transitions (FAILED / REFUNDED / PENDING_*).
+  await db.payment.update({
+    where: { id: paymentId },
+    data: { status: info.payStatus },
+  });
+  return {
+    ref: payment.transactionRef,
+    status: info.payStatus,
+    changed: true,
+  };
 }

@@ -9,6 +9,7 @@ import {
   buildPayPalExperienceContext,
   paypalCurrency,
 } from "./channelLogic";
+import { PayStatus, PayStatusValue } from "../lib/constants";
 
 const base = () =>
   env.paypal.mode === "live"
@@ -208,4 +209,126 @@ export async function verifyPayPalWebhook(
   if (!res.ok) return false;
   const data = (await res.json()) as { verification_status?: string };
   return data.verification_status === "SUCCESS";
+}
+
+/** PayPal Orders v2 statuses we reconcile (order-level `status` field). */
+export type PayPalOrderStatus =
+  | "CREATED"
+  | "SAVED"
+  | "APPROVED"
+  | "COMPLETED"
+  | "VOIDED"
+  | "PAYER_ACTION_REQUIRED";
+
+/** PayPal capture statuses we reconcile (per-capture `status` field). */
+export type PayPalCaptureStatus =
+  | "PENDING"
+  | "COMPLETED"
+  | "REFUNDED"
+  | "PARTIALLY_REFUNDED"
+  | "FAILED"
+  | "DECLINED"
+  | "DENIED"
+  | "BLOCKED";
+
+/**
+ * Map a PayPal Orders v2 response to the local PayStatus. Capture-level
+ * status takes precedence when a capture exists; otherwise we derive from the
+ * order-level status. Any unrecognized value falls through to PENDING.
+ */
+export function mapPayPalCaptureStatus(
+  orderStatus: string,
+  captureStatus?: string | null
+): PayStatusValue {
+  switch (captureStatus) {
+    case "COMPLETED":
+      return PayStatus.PAID;
+    case "REFUNDED":
+    case "PARTIALLY_REFUNDED":
+      return PayStatus.REFUNDED;
+    case "FAILED":
+    case "DECLINED":
+    case "DENIED":
+    case "BLOCKED":
+      return PayStatus.FAILED;
+    case "PENDING":
+      return PayStatus.PENDING_VERIFICATION;
+    case undefined:
+    case null:
+    default:
+      break; // no capture or unknown -> decide from order status
+  }
+  switch (orderStatus) {
+    case "COMPLETED":
+      return PayStatus.PAID;
+    case "VOIDED":
+      return PayStatus.FAILED;
+    case "CREATED":
+    case "SAVED":
+    case "APPROVED":
+    case "PAYER_ACTION_REQUIRED":
+    default:
+      return PayStatus.PENDING;
+  }
+}
+
+/** Raw slice of a PayPal Orders v2 GET response that we reconcile. */
+interface PayPalOrderResponse {
+  status?: string;
+  purchase_units?: Array<{
+    payments?: {
+      captures?: Array<{
+        id?: string;
+        status?: string;
+        finalize_time?: string;
+      }>;
+    };
+  }>;
+}
+
+export interface PayPalOrderStatusResult {
+  /** PayPal order id. */
+  orderId: string;
+  /** PayPal order-level status (e.g. "COMPLETED", "APPROVED"). */
+  orderStatus: string;
+  /** PayPal capture id, when a capture exists. */
+  captureId?: string;
+  /** PayPal capture-level status, when a capture exists. */
+  captureStatus?: string;
+  /** Mapped local PayStatus. */
+  payStatus: PayStatusValue;
+}
+
+/**
+ * Poll a PayPal Orders v2 order to determine its current settlement state.
+ * GET /v2/checkout/orders/{order_id} -- the read counterpart to the one-shot
+ * `capturePayPalOrder`. Use this to reconcile a payment whose local status is
+ * stale (e.g. the capture landed out-of-band, or the webhook was missed).
+ */
+export async function getPayPalOrderStatus(
+  orderId: string
+): Promise<PayPalOrderStatusResult> {
+  const token = await getAccessToken();
+  const res = await fetch(
+    `${base()}/v2/checkout/orders/${encodeURIComponent(orderId)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`PayPal order lookup failed (HTTP ${res.status})`);
+  }
+  const order = (await res.json()) as PayPalOrderResponse;
+  const capture = order.purchase_units?.[0]?.payments?.captures?.[0];
+  return {
+    orderId,
+    orderStatus: order.status ?? "UNKNOWN",
+    captureId: capture?.id,
+    captureStatus: capture?.status,
+    payStatus: mapPayPalCaptureStatus(order.status ?? "UNKNOWN", capture?.status ?? null),
+  };
 }
